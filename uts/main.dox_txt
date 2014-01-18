@@ -1,0 +1,217 @@
+
+
+/**
+@mainpage
+UnitTestSystem is a collection of primitives for running unit tests.
+Follow the links below for more information.
+
+- @ref uts_concepts
+- @ref uts_using
+
+*/
+
+/**
+@page uts_concepts Concepts
+
+@subsection uts_test_contexts Test Contexts
+All tests run within a "context", where the context provides general
+environment information and resources for running the tests.
+The base context class is uts::TestContext, which has minimal
+functionality.  This class defines an output stream (for test results)
+and a global "halt all testing" mechanism.  @note uts::TestContext does not include
+an interface to databases.
+
+@subsection uts_test_runners Test Runners
+The test execution engine uses the visitor pattern, and the uts::TestRunner
+class encapsulates this engine.  The test runner is the lone visitor
+and visits every node in the @ref uts_test_tree.
+
+The runner requires knowledge of the uts::TestContext in which all tests
+it visits will run.  This is enforced by requiring a uts::TestContext 
+in the uts::TestRunner constructor.
+
+@subsection uts_test_tree Test Tree
+The test tree is a collection of @ref uts_test_case "test cases" and
+@ref uts_test_suite "test suites".  There are two kinds of nodes in the tree:
+branches and leaves.  Branches are implemented using @ref uts_test_suite "test suites"
+and leaves are @ref uts_test_case "test cases".
+
+As with any tree structure there is a "root" node, which is accessed via
+uts::root().  Users create @ref uts_test_suite "test suites" and
+@ref uts_test_case "test cases" and attach them to the root to build the tree
+of tests.  Once the tree is created, the user has the tree "accept" a
+runner visitor in order to execute the tests.
+
+Test execution:
+- If the node being visited is a @ref uts_test_case "test case", then
+the "visit" causes the test case function to run.
+- If the node being visited is a @ref uts_test_suite "test suite",
+then the suite directs the runner to "visit" all the tests and sub-suites
+within the suite.
+- Test cases and test suites are given text names when created and
+are executed in alphabetical order.
+- A test suite is not considered completely executed until all test cases
+in all sub-test suites have run.  So given a test suite with test cases named
+A, B, and D, and a sub-suite named C, then tests A and B will run, followed
+by all test cases and test suites under suite C, and finally by test D.  
+- Test execution continues until all tests have run or one test has
+indicated all tests should stop by calling fail_and_stop_tests_if().
+- "Simple" test failure (fail_if()) will halt execution of that test, but
+<b>will not</b> halt execution of subsequent tests.
+
+@subsection uts_test_suite Test Suite
+A test suite is a named collection of one or more @ref uts_test_case "test cases"
+and zero or more sub test suites.  Tests in the suite are executed by having 
+A test suite by itself does nothing.  You must associate at least one
+test case or test suite with a test suite in order for anything interesting to happen.
+
+Because a test suite serves as a branch node in the tree of tests, it can
+have other branches associated with it.
+
+Users are not required to define test suites.  It is possible to define
+all test cases such that they are attached to the root node.  This
+is fine for very simple test programs, but presumably we will have a rich
+set of tests and will therefore need to use test suites to organize it all.
+
+@subsection uts_test_case Test Case
+A test case is a function that performs a specific test.  It is self-contained,
+and in general should not depend on the results of other test cases.  A test
+case must be associated with a test suite in order for it to be executed.
+
+A test case can terminate in one of the following ways:
+- Success; subsequent tests in the tree will be executed.
+- Failure; subsequent tests in the tree will be executed.
+- Critical failure; subsequent tests in the tree will not be executed.
+
+*/
+
+/**
+@page uts_using Using the Unit Test System
+
+Implementing tests is fairly easy.  First, create a DevStudio project that
+will contain and run the tests, and then build the test suite tree(s) using
+unit test utility macros and objects.
+
+@subsection uts_writing_test_suites Writing Test Suites
+A @ref uts_test_suite "test suite" is merely a declaration of a branch
+in the tree that indicates where the branch is connected to the rest
+of the tree.  A @ref uts_test_suite "test suite" is defined using the
+DefineTestSuite() macro:
+
+@code
+static DefineTestSuite(TestLevelOne, uts::root());
+static DefineTestSuite(TestLevelTwoForkOne, TestLevelOne);
+static DefineTestSuite(TestLevelTwoForkTwo, TestLevelOne);
+@endcode
+
+The example above creates a trivial tree.  The first branch is attached to the
+root, and then two branches fork off of that branch.  There are no leaves
+(@ref uts_test_case "test cases") on the tree, so traversing it with a runner
+will be uneventful.
+
+Nothing else is required to define a @ref uts_test_suite "test suite".
+Internally, the names "TestLevelOne", etc, are associated with the branch points
+and are used when reporting test results.
+
+@subsection uts_writing_test_cases Writing Test Cases
+A test case function is declared and defined using the DefineTestCase() macro.
+Expanding on the example tree above, one might have the following:
+
+@code
+DefineTestCase(TestCaseOne, TestLevelOne)
+{
+// test code goes here
+}
+DefineTestCase(TestCaseTwo, TestLevelOne)
+{
+// test code goes here
+}
+DefineTestCase(TestCaseThree, TestLevelTwoForkOne)
+{
+// test code goes here
+}
+DefineTestCase(TestCaseFour, TestLevelTwoForkOne)
+{
+// test code goes here
+}
+DefineTestCase(TestCaseFive, TestLevelTwoForkTwo)
+{
+// test code goes here
+}
+@endcode
+
+@note The @ref uts_test_case "test case" is the first parameter
+and the @ref uts_test_suite "test suite" to which it is attached is
+the second parameter.
+
+When the DefineTestCase() macro is expanded, test case functions have the
+following signature:
+
+@code
+void TestCaseName(uts::TestContext& Context)
+@endcode
+
+Additional code is created that connects the @ref uts_test_case "test case"
+to the @ref uts_test_suite "test suite", but the essential information
+needed by test writers is illustrated above, namely:
+- There is no return value from a @ref uts_test_case "test case" function.
+- The @ref uts_test_case "test case" function has access to the uts::TestContext
+in which it runs.
+
+Supporting functions for the test case (if needed) are declared using standard
+C/C++ nomenclature.
+
+The lone parameter, the test context, provides very basic services.  When a
+test case require more resources, the user must provide them using a derived
+context class or with global constructs.  Try to use the base context class
+whenever possible; there will be a desire to create context classes that
+provide more services, but you'll also want to avoid creating bloated context classes.
+
+There is no return value from a test, so success or failure must be communicated
+using some other mechanism.  The "approved" ways of doing this are with the use
+of these macros:
+
+- pass_if(): use this when you have a condition that must be true for the
+test to continue. 
+- fail_if(): use this when you have a condition that if true requires
+that the current @ref uts_test_case "test case" stops execution.
+- fail_and_stop_tests_if(): use this when you have a condition that when true
+indicates that something truly horribly has happened and all tests should stop.
+
+@subsection uts_simple_example Putting It All Together
+Here's a simple example.  At press time, the CbsTest project was very simple.
+It had the following code added to the app's InitInstance function:
+
+@code
+using namespace uts;
+TestContext context(getLogStream());
+TestRunner runner(&context);
+root().accept(runner);
+runner.printSummary();
+
+Then in another file we had:
+
+static DefineTestSuite(ARTest, uts::root());
+static DefineTestSuite(TestApplyPayments, ARTest);
+
+static DefineTestCase(Best_Match, TestApplyPayments)
+{
+  // Setup code
+  pass_if( < results of setup code > );
+}
+
+static DefineTestCase(IOObj_Test, TestApplyPayments)
+{
+  CDbTestContext dbc("Cbs.sys", "CBS Sample Company.cbs");
+  CObjApplyPayment obj;
+  pass_if( obj.CreatePmtApp2ForSelTx()==CCsiError::HR_Success );
+  CDlgApplyPayments Dlg(AfxGetApp()->m_pMainWnd);
+  Dlg.DoModal();	
+}
+@endcode
+
+This example defines two test suites, ARTest and TestApplyPayments, and two
+tests, Best_Match and IOObj_Test.  Strictly speaking, neither suite was required.
+The tests could have been associated directly with uts::root().  However, in
+this instance some thought was given to the future test structure and sub-suites.
+*/
