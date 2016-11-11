@@ -4,7 +4,7 @@
 
 RM := rm -rf
 
-CXXFLAGS= -g -I./inc -I./src -fpic -fPIC -DLINUX
+CFLAGS= -g -fpic
 
 LDFLAGS= -g -fPIC -lpthread  
 
