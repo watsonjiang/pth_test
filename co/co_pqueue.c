@@ -5,6 +5,7 @@ struct co_pqueue_st {
     co_t q_head;
     int   q_num;
     pthread_mutex_t lock;
+    pthread_mutexattr_t lock_attr;
     pthread_cond_t not_empty_cond; 
 };
 typedef struct co_pqueue_st co_pqueue_t;
@@ -16,7 +17,10 @@ void co_pqueue_init(co_pqueue_t *q)
     if (q != NULL) {
         q->q_head = NULL;
         q->q_num  = 0;
-        pthread_mutex_init(&q->lock, NULL);
+       
+        pthread_mutexattr_init(&q->lock_attr);
+        pthread_mutexattr_settype(&q->lock_attr, PTHREAD_MUTEX_RECURSIVE);
+        pthread_mutex_init(&q->lock, &q->lock_attr);
         pthread_cond_init(&q->not_empty_cond, NULL);
     }
     return;
