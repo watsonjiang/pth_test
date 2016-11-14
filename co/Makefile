@@ -11,6 +11,7 @@ LDFLAGS= -g -fPIC -lpthread
 EX_OBJS=
 
 SO_OBJS=co_pqueue.o \
+		co_time.o
 
 BINS=libco.so
 # project lifecycle target.

@@ -1,5 +1,6 @@
 #ifndef CO_H
 #define CO_H
+#include <sys/time.h>
 
 /* essential values */
 #ifndef NULL
@@ -24,6 +25,16 @@
 #define PTH_PRIO_STD                  0
 #define PTH_PRIO_MIN                 -5
 
+    /* event status codes */
+typedef enum {
+    CO_STATUS_PENDING,
+    CO_STATUS_OCCURRED,
+    CO_STATUS_FAILED
+} co_status_t;
+
+typedef struct timeval co_time_t;
+
+typedef struct co_event_st * ct_event_t;
 
 typedef struct co_st * co_t;
 /* thread control block */
