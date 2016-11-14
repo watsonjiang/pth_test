@@ -1,6 +1,7 @@
 #include "co.h"
-
-
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
 /* event structure */
 struct co_event_st {
     struct co_event_st *ev_next;
@@ -18,9 +19,9 @@ struct co_event_st {
 static void co_event_destructor(void *vp)
 {
     /* free this single(!) event. That it is just a single event is a
-       requirement for co_event(PTH_MODE_STATIC, ...), or else we would
+       requirement for co_event(CO_MODE_STATIC, ...), or else we would
        get into horrible trouble on asychronous cleanups */
-    co_event_free((co_event_t)vp, PTH_FREE_THIS);
+    co_event_free((co_event_t)vp, CO_FREE_THIS);
     return;
 }
 
@@ -28,36 +29,24 @@ static void co_event_destructor(void *vp)
 co_event_t co_event(unsigned long spec, ...)
 {
     co_event_t ev;
-    co_key_t *ev_key;
     va_list ap;
 
     va_start(ap, spec);
 
     /* allocate new or reuse static or supplied event structure */
-    if (spec & PTH_MODE_REUSE) {
+    if (spec & CO_MODE_REUSE) {
         /* reuse supplied event structure */
         ev = va_arg(ap, co_event_t);
-    }
-    else if (spec & PTH_MODE_STATIC) {
-        /* reuse static event structure */
-        ev_key = va_arg(ap, co_key_t *);
-        if (*ev_key == PTH_KEY_INIT)
-            co_key_create(ev_key, co_event_destructor);
-        ev = (co_event_t)co_key_getdata(*ev_key);
-        if (ev == NULL) {
-            ev = (co_event_t)malloc(sizeof(struct co_event_st));
-            co_key_setdata(*ev_key, ev);
-        }
     }
     else {
         /* allocate new dynamic event structure */
         ev = (co_event_t)malloc(sizeof(struct co_event_st));
     }
     if (ev == NULL)
-        return co_error((co_event_t)NULL, errno);
+        return (co_event_t)NULL;
 
     /* create new event ring out of event or insert into existing ring */
-    if (spec & PTH_MODE_CHAIN) {
+    if (spec & CO_MODE_CHAIN) {
         co_event_t ch = va_arg(ap, co_event_t);
         ev->ev_prev = ch->ev_prev;
         ev->ev_next = ch;
@@ -70,25 +59,25 @@ co_event_t co_event(unsigned long spec, ...)
     }
 
     /* initialize common ingredients */
-    ev->ev_status = PTH_STATUS_PENDING;
+    ev->ev_status = CO_STATUS_PENDING;
 
     /* initialize event specific ingredients */
-    if (spec & PTH_EVENT_TIME) {
+    if (spec & CO_EVENT_TIME) {
         /* interrupt request event */
         co_time_t tv = va_arg(ap, co_time_t);
-        ev->ev_type = PTH_EVENT_TIME;
-        ev->ev_goal = (int)(spec & (PTH_UNTIL_OCCURRED));
+        ev->ev_type = CO_EVENT_TIME;
+        ev->ev_goal = (int)(spec & (CO_UNTIL_OCCURRED));
         ev->ev_args.TIME.tv = tv;
     }
-    else if (spec & PTH_EVENT_MSG) {
+    else if (spec & CO_EVENT_MSG) {
         /* message event */
         void *p = va_arg(ap, void*);
-        ev->ev_type = PTH_EVENT_MSG;
-        ev->ev_goal = (int)(spec & (PTH_UNTIL_OCCURRED));
+        ev->ev_type = CO_EVENT_MSG;
+        ev->ev_goal = (int)(spec & (CO_UNTIL_OCCURRED));
         ev->ev_args.MSG.p = p;
     }
     else
-        return co_error((co_event_t)NULL, EINVAL);
+        return (co_event_t)NULL;
 
     va_end(ap);
 
@@ -100,7 +89,7 @@ co_event_t co_event(unsigned long spec, ...)
 unsigned long co_event_typeof(co_event_t ev)
 {
     if (ev == NULL)
-        return co_error(0, EINVAL);
+        return 0;
     return (ev->ev_type | ev->ev_goal);
 }
 
@@ -110,22 +99,22 @@ int co_event_extract(co_event_t ev, ...)
     va_list ap;
 
     if (ev == NULL)
-        return co_error(FALSE, EINVAL);
+        return FALSE;
     va_start(ap, ev);
 
     /* extract event specific ingredients */
-    if (ev->ev_type & PTH_EVENT_TIME) {
+    if (ev->ev_type & CO_EVENT_TIME) {
         /* interrupt request event */
         co_time_t *tv = va_arg(ap, co_time_t *);
         *tv = ev->ev_args.TIME.tv;
     }
-    else if (ev->ev_type & PTH_EVENT_MSG) {
+    else if (ev->ev_type & CO_EVENT_MSG) {
         /* message event */
         void **p = va_arg(ap, void **);
-        *mp = ev->ev_args.MSG.p;
+        *p = ev->ev_args.MSG.p;
     }
     else
-        return co_error(FALSE, EINVAL);
+        return FALSE;
     va_end(ap);
     return TRUE;
 }
@@ -140,7 +129,7 @@ co_event_t co_event_concat(co_event_t evf, ...)
     va_list ap;
 
     if (evf == NULL)
-        return co_error((co_event_t)NULL, EINVAL);
+        return (co_event_t)NULL;
 
     /* open ring */
     va_start(ap, evf);
@@ -169,7 +158,7 @@ co_event_t co_event_isolate(co_event_t ev)
     co_event_t ring;
 
     if (ev == NULL)
-        return co_error((co_event_t)NULL, EINVAL);
+        return (co_event_t)NULL;
     ring = NULL;
     if (!(ev->ev_next == ev && ev->ev_prev == ev)) {
         ring = ev->ev_next;
@@ -185,7 +174,7 @@ co_event_t co_event_isolate(co_event_t ev)
 co_status_t co_event_status(co_event_t ev)
 {
     if (ev == NULL)
-        return co_error(FALSE, EINVAL);
+        return FALSE;
     return ev->ev_status;
 }
 
@@ -193,15 +182,15 @@ co_status_t co_event_status(co_event_t ev)
 co_event_t co_event_walk(co_event_t ev, unsigned int direction)
 {
     if (ev == NULL)
-        return co_error((co_event_t)NULL, EINVAL);
+        return (co_event_t)NULL;
     do {
-        if (direction & PTH_WALK_NEXT)
+        if (direction & CO_WALK_NEXT)
             ev = ev->ev_next;
-        else if (direction & PTH_WALK_PREV)
+        else if (direction & CO_WALK_PREV)
             ev = ev->ev_prev;
         else
-            return co_error((co_event_t)NULL, EINVAL);
-    } while ((direction & PTH_UNTIL_OCCURRED) && (ev->ev_status != PTH_STATUS_OCCURRED));
+            return (co_event_t)NULL;
+    } while ((direction & CO_UNTIL_OCCURRED) && (ev->ev_status != CO_STATUS_OCCURRED));
     return ev;
 }
 
@@ -212,13 +201,13 @@ int co_event_free(co_event_t ev, int mode)
     co_event_t evn;
 
     if (ev == NULL)
-        return co_error(FALSE, EINVAL);
-    if (mode == PTH_FREE_THIS) {
+        return FALSE;
+    if (mode == CO_FREE_THIS) {
         ev->ev_prev->ev_next = ev->ev_next;
         ev->ev_next->ev_prev = ev->ev_prev;
         free(ev);
     }
-    else if (mode == PTH_FREE_ALL) {
+    else if (mode == CO_FREE_ALL) {
         evc = ev;
         do {
             evn = evc->ev_next;
@@ -235,15 +224,16 @@ int co_wait(co_event_t ev_ring)
     int nonpending;
     co_event_t ev;
 
+    co_t co_current = co_get_current_co();
     /* at least a waiting ring is required */
     if (ev_ring == NULL)
-        return co_error(-1, EINVAL);
-    co_debug2("co_wait: enter from thread \"%s\"", co_current->name);
+        return -1;
+    printf("co_wait: enter from thread \"%s\"", co_current->name);
 
     /* mark all events in waiting ring as still pending */
     ev = ev_ring;
     do {
-        ev->ev_status = PTH_STATUS_PENDING;
+        ev->ev_status = CO_STATUS_PENDING;
         co_debug2("co_wait: waiting on event 0x%lx", (unsigned long)ev);
         ev = ev->ev_next;
     } while (ev != ev_ring);
@@ -253,7 +243,7 @@ int co_wait(co_event_t ev_ring)
 
     /* move thread into waiting state
        and transfer control to scheduler */
-    co_current->state = PTH_STATE_WAITING;
+    co_current->state = CO_STATE_WAITING;
     co_yield(NULL);
 
     /* check for cancellation */
@@ -266,7 +256,7 @@ int co_wait(co_event_t ev_ring)
     ev = ev_ring;
     nonpending = 0;
     do {
-        if (ev->ev_status != PTH_STATUS_PENDING) {
+        if (ev->ev_status != CO_STATUS_PENDING) {
             co_debug2("co_wait: non-pending event 0x%lx", (unsigned long)ev);
             nonpending++;
         }

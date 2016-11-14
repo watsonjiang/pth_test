@@ -2,6 +2,9 @@
 
 co_pqueue_t co_NQ;      /* queue of new threads                  */
 
+pthread_key_t co_sched_key = 0;
+pthread_once_t init_once = PTHREAD_ONCE_INIT;
+
 struct sched_st {
     co_pqueue_t RQ;     /* queue of coroutines ready to run       */
     co_pqueue_t WQ;     /* queue of coroutines waiting for event  */
@@ -14,6 +17,11 @@ struct sched_st {
 };
 typedef sched_st * sched_t;
 
+co_t co_get_current_co()
+{
+    sched_t s = (sched_t)pthread_getspecific(co_sched_key); 
+    return s->co_current; 
+}
 
 /* initialize the scheduler ingredients */
 int co_scheduler_init(sched_st s)

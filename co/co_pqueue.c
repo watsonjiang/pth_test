@@ -149,7 +149,7 @@ void co_pqueue_delete(co_pqueue_t *q, co_t t)
 
 /* determine priority required to favorite a thread; O(1) */
 #define co_pqueue_favorite_prio(q) \
-    ((q)->q_head != NULL ? (q)->q_head->q_prio + 1 : PTH_PRIO_MAX)
+    ((q)->q_head != NULL ? (q)->q_head->q_prio + 1 : CO_PRIO_MAX)
 
 /* move a thread inside queue to the top; O(n) */
 int co_pqueue_favorite(co_pqueue_t *q, co_t t)
@@ -211,11 +211,11 @@ co_t co_pqueue_walk(co_pqueue_t *q, co_t t, int direction)
     if (q == NULL || t == NULL)
         return NULL;
     tn = NULL;
-    if (direction == PTH_WALK_PREV) {
+    if (direction == CO_WALK_PREV) {
         if (t != q->q_head)
             tn = t->q_prev;
     }
-    else if (direction == PTH_WALK_NEXT) {
+    else if (direction == CO_WALK_NEXT) {
         tn = t->q_next;
         if (tn == q->q_head)
             tn = NULL;
@@ -231,7 +231,7 @@ int co_pqueue_contains(co_pqueue_t *q, co_t t)
 
     found = FALSE;
     for (tc = co_pqueue_head(q); tc != NULL;
-         tc = co_pqueue_walk(q, tc, PTH_WALK_NEXT)) {
+         tc = co_pqueue_walk(q, tc, CO_WALK_NEXT)) {
         if (tc == t) {
             found = TRUE;
             break;
