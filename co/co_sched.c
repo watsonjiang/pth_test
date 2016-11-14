@@ -5,6 +5,7 @@
 #include <errno.h>
 
 co_pqueue_t co_NQ;      /* queue of new threads                  */
+pthread_mutex_t co_NQ_lock = PTHREAD_MUTEX_INITIALIZER;   /* mutex for NQ */
 
 pthread_key_t co_sched_key = 0;
 
@@ -70,14 +71,36 @@ void *co_scheduler(sched_t s)
          * Move threads from new queue to ready queue and optionally
          * give them maximum priority so they start immediately.
          */
+        co_t tmp_head = NULL;
+        co_t tmp_cur = NULL;
+        pthread_mutex_lock(&co_NQ_lock);
         while ((t = co_pqueue_tail(&co_NQ)) != NULL) {
             co_pqueue_delete(&co_NQ, t);
             t->state = CO_STATE_READY;
+            if (tmp_head == NULL) {
+                tmp_head = t;
+                tmp_cur = t;
+                tmp_cur->q_next = NULL;
+            }
+            else {
+                tmp_cur->q_next = t;
+                tmp_cur = t;
+                tmp_cur->q_next = NULL;
+            }
+        }
+        pthread_mutex_unlock(&co_NQ_lock);
+        tmp_cur = tmp_head;
+        pthread_mutex_lock(&s->ev_lock);
+        while(tmp_cur!=NULL) {
+            s->ev_occured_cnt -= 1;
+            t = tmp_cur; 
+            tmp_cur = t->q_next;
             if (s->favournew)
                 co_pqueue_insert(&s->RQ, co_pqueue_favorite_prio(&s->RQ), t);
             else
                 co_pqueue_insert(&s->RQ, CO_PRIO_STD, t);
         }
+        pthread_mutex_unlock(&s->ev_lock);
 
         /*
          * Find next thread in ready queue
