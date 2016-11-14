@@ -12,7 +12,8 @@ EX_OBJS=
 
 SO_OBJS=co_pqueue.o \
 		co_time.o \
-		co_event.o
+		co_event.o \
+		co_sched.o
 
 BINS=libco.so
 # project lifecycle target.

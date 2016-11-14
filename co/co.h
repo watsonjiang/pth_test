@@ -53,13 +53,15 @@ typedef struct timeval co_time_t;
 typedef struct co_event_st * co_event_t;
 
 /* thread states */
-typedef enum pth_state_en {
+typedef enum co_state_en {
     CO_STATE_SCHEDULER = 0,         /* the special scheduler thread only       */
     CO_STATE_NEW,                   /* spawned, but still not dispatched       */
     CO_STATE_READY,                 /* ready, waiting to be dispatched         */
     CO_STATE_WAITING,               /* suspended, waiting until event occurred */
     CO_STATE_DEAD                   /* terminated, waiting to be joined        */
 } co_state_t;
+
+typedef struct co_pqueue_st * co_pqueue_t;
 
 typedef struct co_st * co_t;
 /* thread control block */

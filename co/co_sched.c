@@ -1,9 +1,9 @@
-#include "pth.h"
+#include "co.h"
+#include <stdio.h>
 
 co_pqueue_t co_NQ;      /* queue of new threads                  */
 
 pthread_key_t co_sched_key = 0;
-pthread_once_t init_once = PTHREAD_ONCE_INIT;
 
 struct sched_st {
     co_pqueue_t RQ;     /* queue of coroutines ready to run       */
@@ -15,7 +15,7 @@ struct sched_st {
     co_t         co_sched;
     co_t         co_current;
 };
-typedef sched_st * sched_t;
+typedef struct sched_st * sched_t;
 
 co_t co_get_current_co()
 {
@@ -24,7 +24,7 @@ co_t co_get_current_co()
 }
 
 /* initialize the scheduler ingredients */
-int co_scheduler_init(sched_st s)
+int co_scheduler_init(sched_t s)
 {
     /* initialize the essential threads */
     s->co_sched   = NULL;
@@ -35,7 +35,7 @@ int co_scheduler_init(sched_st s)
     co_pqueue_init(&s->WQ);
 
     /* initialize scheduling hints */
-    s->co_favournew = 1; /* the default is the original behaviour */
+    s->favournew = 1; /* the default is the original behaviour */
 
     return TRUE;
 }
@@ -51,10 +51,10 @@ void *co_scheduler(sched_t s)
      * bootstrapping
      */
     /* mark this thread as the special scheduler thread */
-    s->co_sched->state = PTH_STATE_SCHEDULER;
+    s->co_sched->state = CO_STATE_SCHEDULER;
 
     /* initialize the snapshot time for bootstrapping the loop */
-    co_time_set(&snapshot, PTH_TIME_NOW);
+    co_time_set(&snapshot, (co_time_t *)0);
 
     /*
      * endless scheduler loop
@@ -66,17 +66,17 @@ void *co_scheduler(sched_t s)
          */
         while ((t = co_pqueue_tail(&co_NQ)) != NULL) {
             co_pqueue_delete(&co_NQ, t);
-            t->state = PTH_STATE_READY;
-            if (s->co_favournew)
-                co_pqueue_insert(&s->co_RQ, co_pqueue_favorite_prio(&s->co_RQ), t);
+            t->state = CO_STATE_READY;
+            if (s->favournew)
+                co_pqueue_insert(&s->RQ, co_pqueue_favorite_prio(&s->RQ), t);
             else
-                co_pqueue_insert(&s->co_RQ, PTH_PRIO_STD, t);
+                co_pqueue_insert(&s->RQ, CO_PRIO_STD, t);
         }
 
         /*
          * Find next thread in ready queue
          */
-        s->co_current = co_pqueue_delmax(&s->co_RQ);
+        s->co_current = co_pqueue_delmax(&s->RQ);
         if (s->co_current == NULL) {
             fprintf(stderr, "**Pth** SCHEDULER INTERNAL ERROR: "
                             "no more thread(s) available to schedule!?!?\n");
@@ -102,10 +102,10 @@ void *co_scheduler(sched_t s)
          * If thread wants to wait for an event
          * move it to waiting queue now
          */
-        if (s->co_current != NULL && s->co_current->state == PTH_STATE_WAITING) {
-            co_debug2("co_scheduler: moving thread \"%s\" to waiting queue",
-                       co_current->name);
-            co_pqueue_insert(&s->co_WQ, s->co_current->prio, s->co_current);
+        if (s->co_current != NULL && s->co_current->state == CO_STATE_WAITING) {
+            printf("co_scheduler: moving thread \"%s\" to waiting queue",
+                    co_current->name);
+            co_pqueue_insert(&s->WQ, s->co_current->prio, s->co_current);
             s->co_current = NULL;
         }
 
@@ -114,9 +114,9 @@ void *co_scheduler(sched_t s)
          * priorities to avoid starvation and insert last running
          * thread back into this queue, too.
          */
-        co_pqueue_increase(&s->co_RQ);
+        co_pqueue_increase(&s->RQ);
         if (s->co_current != NULL)
-            co_pqueue_insert(&s->co_RQ, s->co_current->prio, s->co_current);
+            co_pqueue_insert(&s->RQ, s->co_current->prio, s->co_current);
 
         /*
          * Manage the events in the waiting queue, i.e. decide whether their
@@ -140,7 +140,7 @@ void *co_scheduler(sched_t s)
  * Look whether some events already occurred (or failed) and move
  * corresponding threads from waiting queue back to ready queue.
  */
-void co_sched_eventmanager(co_time_t *now, int dopoll)
+void co_sched_eventmanager(sched_t s, co_time_t *now, int dopoll)
 {
     co_t nexttimer_thread;
     co_event_t nexttimer_ev;
@@ -161,14 +161,14 @@ void co_sched_eventmanager(co_time_t *now, int dopoll)
                dopoll ? "polling" : "waiting");
 
     /* initialize next timer */
-    co_time_set(&nexttimer_value, PTH_TIME_ZERO);
+    co_time_set(&nexttimer_value, CO_TIME_ZERO);
     nexttimer_thread = NULL;
     nexttimer_ev = NULL;
 
     /* for all threads in the waiting queue... */
     any_occurred = FALSE;
-    for (t = co_pqueue_head(&co_WQ); t != NULL;
-         t = co_pqueue_walk(&co_WQ, t, PTH_WALK_NEXT)) {
+    for (t = co_pqueue_head(&s->WQ); t != NULL;
+         t = co_pqueue_walk(&s->WQ, t, CO_WALK_NEXT)) {
 
         /* cancellation support */
         if (t->cancelreq == TRUE)
@@ -180,10 +180,10 @@ void co_sched_eventmanager(co_time_t *now, int dopoll)
         /* ...check whether events occurred */
         ev = evh = t->events;
         do {
-            if (ev->ev_status == PTH_STATUS_PENDING) {
+            if (ev->ev_status == CO_STATUS_PENDING) {
                 this_occurred = FALSE;
                 /* Timer */
-                else if (ev->ev_type == PTH_EVENT_TIME) {
+                else if (ev->ev_type == CO_EVENT_TIME) {
                     if (co_time_cmp(&(ev->ev_args.TIME.tv), now) < 0)
                         this_occurred = TRUE;
                     else {
@@ -199,7 +199,7 @@ void co_sched_eventmanager(co_time_t *now, int dopoll)
                 /* tag event if it has occurred */
                 if (this_occurred) {
                     printf("co_sched_eventmanager: [non-I/O] event occurred for thread \"%s\"", t->name);
-                    ev->ev_status = PTH_STATUS_OCCURRED;
+                    ev->ev_status = CO_STATUS_OCCURRED;
                     any_occurred = TRUE;
                 }
             }
@@ -227,9 +227,9 @@ void co_sched_eventmanager(co_time_t *now, int dopoll)
             rc = pthread_cond_timewait(&s->ev_occured_cond, &s->ev_lock, delay);
         if (rc == ETIMEOUT) {
             /* it was an explicit timer event, standing for its own */
-            co_debug2("co_sched_eventmanager: [timeout] event occurred for thread \"%s\"",
+            printf("co_sched_eventmanager: [timeout] event occurred for thread \"%s\"",
                        nexttimer_thread->name);
-            nexttimer_ev->ev_status = PTH_STATUS_OCCURRED;
+            nexttimer_ev->ev_status = CO_STATUS_OCCURRED;
         } 
         pthread_mutex_unlock(&s->ev_lock);
     }
@@ -269,9 +269,9 @@ void co_sched_eventmanager(co_time_t *now, int dopoll)
          * a chance.
          */
         if (any_occured) {
-            co_pqueue_delete(&WQ, tlast); 
+            co_pqueue_delete(&s->WQ, tlast); 
             tlast->state = CO_STATE_READY;
-            co_pqueue_insert(&RQ, tlast->prio+1, tlast);
+            co_pqueue_insert(&s->RQ, tlast->prio+1, tlast);
         }
     }
 
