@@ -1,15 +1,5 @@
 #include "co.h"
 #include <pthread.h>
-/* coroutine priority queue */
-struct co_pqueue_st {
-    co_t q_head;
-    int   q_num;
-    pthread_mutex_t lock;
-    pthread_mutexattr_t lock_attr;
-    pthread_cond_t not_empty_cond; 
-};
-typedef struct co_pqueue_st co_pqueue_t;
-
 
 /* initialize a priority queue; O(1) */
 void co_pqueue_init(co_pqueue_t *q)

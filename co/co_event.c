@@ -2,19 +2,6 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-/* event structure */
-struct co_event_st {
-    struct co_event_st *ev_next;
-    struct co_event_st *ev_prev;
-    co_status_t ev_status;
-    int ev_type;
-    int ev_goal;
-    union {
-        struct { co_time_t tv; }                                   TIME;
-        struct { void *p; }                                        MSG;
-    } ev_args;
-};
-
 /* event structure destructor */
 static void co_event_destructor(void *vp)
 {

@@ -17,40 +17,7 @@
 /* bitmask generation */
 #define _BIT(n) (1<<(n))
 
-/* event walking directions */
-#define CO_WALK_NEXT                _BIT(1)
-#define CO_WALK_PREV                _BIT(2)
-
-/* thread priority values */
-#define CO_PRIO_MAX                 +5
-#define CO_PRIO_STD                  0
-#define CO_PRIO_MIN                 -5
-
-
-/* event subject classes */
-#define CO_EVENT_TIME               _BIT(1)
-#define CO_EVENT_MSG                _BIT(2)
-
-/* event occurange restrictions */
-#define CO_UNTIL_OCCURRED           _BIT(11)
-
-/* event structure handling modes */
-#define CO_MODE_REUSE               _BIT(20)
-#define CO_MODE_CHAIN               _BIT(21)
-
-/* event deallocation types */
-enum { CO_FREE_THIS, CO_FREE_ALL };
-
-/* event status codes */
-typedef enum {
-    CO_STATUS_PENDING,
-    CO_STATUS_OCCURRED,
-    CO_STATUS_FAILED
-} co_status_t;
-
 typedef struct timeval co_time_t;
-
-typedef struct co_event_st * co_event_t;
 
 /* thread states */
 typedef enum co_state_en {
@@ -61,8 +28,7 @@ typedef enum co_state_en {
     CO_STATE_DEAD                   /* terminated, waiting to be joined        */
 } co_state_t;
 
-typedef struct co_pqueue_st * co_pqueue_t;
-
+typedef struct co_event_st * co_event_t;
 typedef struct co_st * co_t;
 /* thread control block */
 struct co_st {
@@ -97,5 +63,75 @@ struct co_st {
 
 /* return current co */
 extern co_t co_get_current_co();
+
+/* pqueue related */
+/* coroutine priority queue */
+struct co_pqueue_st {
+    co_t q_head;
+    int   q_num;
+    pthread_mutex_t lock;
+    pthread_mutexattr_t lock_attr;
+    pthread_cond_t not_empty_cond; 
+};
+typedef struct co_pqueue_st co_pqueue_t;
+
+extern co_t co_pqueue_tail(co_pqueue_t *q);
+
+extern co_t co_pqueue_delmax(co_pqueue_t *q);
+
+extern co_t co_pqueue_walk(co_pqueue_t *q, co_t t, int direction);
+
+/* walk to first thread in queue; O(1) */
+#define co_pqueue_head(q) \
+    ((q) == NULL ? NULL : (q)->q_head)
+
+/* time related */
+extern co_time_t co_time_zero;
+#define CO_TIME_ZERO &co_time_zero
+
+
+/* event related */
+/* event status codes */
+typedef enum {
+    CO_STATUS_PENDING,
+    CO_STATUS_OCCURRED,
+    CO_STATUS_FAILED
+} co_status_t;
+/* event structure */
+struct co_event_st {
+    struct co_event_st *ev_next;
+    struct co_event_st *ev_prev;
+    co_status_t ev_status;
+    int ev_type;
+    int ev_goal;
+    union {
+        struct { co_time_t tv; }                                   TIME;
+        struct { void *p; }                                        MSG;
+    } ev_args;
+};
+/* event walking directions */
+#define CO_WALK_NEXT                _BIT(1)
+#define CO_WALK_PREV                _BIT(2)
+
+/* thread priority values */
+#define CO_PRIO_MAX                 +5
+#define CO_PRIO_STD                  0
+#define CO_PRIO_MIN                 -5
+
+
+/* event subject classes */
+#define CO_EVENT_TIME               _BIT(1)
+#define CO_EVENT_MSG                _BIT(2)
+
+/* event occurange restrictions */
+#define CO_UNTIL_OCCURRED           _BIT(11)
+
+/* event structure handling modes */
+#define CO_MODE_REUSE               _BIT(20)
+#define CO_MODE_CHAIN               _BIT(21)
+
+/* event deallocation types */
+enum { CO_FREE_THIS, CO_FREE_ALL };
+
 
 #endif
