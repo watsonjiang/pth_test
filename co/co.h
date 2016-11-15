@@ -101,6 +101,7 @@ typedef enum {
 struct co_event_st {
     struct co_event_st *ev_next;
     struct co_event_st *ev_prev;
+    co_t coroutine;
     co_status_t ev_status;
     int ev_type;
     int ev_goal;
