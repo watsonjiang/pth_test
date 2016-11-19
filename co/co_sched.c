@@ -10,15 +10,15 @@ struct sched_st {
     co_pqueue_t RQ;     /* queue of coroutines ready to run       */
     pthread_mutex_t ev_lock;    /*lock to protect event queue     */
     co_event_t ev_queue_head;   /*head of event queue             */
-    int ev_occured_cnt;           /* number of event occured      */
-    pthread_cond_t ev_occurred_cond;    /*event occured condition  */
+    int ev_occurred_cnt;           /* number of event occurred      */
+    pthread_cond_t ev_occurred_cond;    /*event occurred condition  */
     int          favournew;  /* favour new threads on startup     */
     co_t         co_sched;
     co_t         co_current;
 };
 typedef struct sched_st * sched_t;
 
-void co_sched_eventmanager(sched_t s, co_time_t *now, int dopoll);
+void co_sched_eventmanager(sched_t s, int dopoll);
 
 co_t co_get_current_co()
 {
@@ -49,10 +49,6 @@ int co_scheduler_init(sched_t s)
 /* the heart of this library: the thread scheduler */
 void *co_scheduler(sched_t s)
 {
-    co_time_t running;
-    co_time_t snapshot;
-    co_t t;
-
     /*
      * bootstrapping
      */
@@ -63,27 +59,12 @@ void *co_scheduler(sched_t s)
      * endless scheduler loop
      */
     for (;;) {
-        co_t tmp_head = NULL;
-        co_t tmp_cur = NULL;
-        tmp_cur = tmp_head;
-        pthread_mutex_lock(&s->ev_lock);
-        while(tmp_cur!=NULL) {
-            s->ev_occured_cnt -= 1;
-            t = tmp_cur; 
-            tmp_cur = t->q_next;
-            if (s->favournew)
-                co_pqueue_insert(&s->RQ, co_pqueue_favorite_prio(&s->RQ), t);
-            else
-                co_pqueue_insert(&s->RQ, CO_PRIO_STD, t);
-        }
-        pthread_mutex_unlock(&s->ev_lock);
-
         /*
          * Find next thread in ready queue
          */
         s->co_current = co_pqueue_delmax(&s->RQ);
         printf("co_scheduler: thread \"%s\" selected (prio=%d, qprio=%d)",
-                s->co_current->name, s->co_current->prio, s->co_current->q_prio);
+               s->co_current->name, s->co_current->prio, s->co_current->q_prio);
 
         /*
          * Set running start time for new thread
@@ -97,26 +78,13 @@ void *co_scheduler(sched_t s)
 
         printf("co_scheduler: cameback from thread 0x%lx (\"%s\")",
                   (unsigned long)s->co_current, s->co_current->name);
-        /*
-         * migrate old treads in ready queue into higher
-         * priorities to avoid starvation and insert last running
-         * thread back into this queue, too.
-         */
-        co_pqueue_increase(&s->RQ);
-        if (s->co_current != NULL)
-            co_pqueue_insert(&s->RQ, s->co_current->prio, s->co_current);
 
-        /*
-         * Manage the events in the waiting queue, i.e. decide whether their
-         * events occurred and move them to the ready queue. But wait only if
-         * we have already no new or ready threads.
-         */
         if (co_pqueue_elements(&s->RQ) == 0)
             /* still no NEW or READY threads, so we have to wait for new work */
-            co_sched_eventmanager(s, &snapshot, FALSE /* wait */);
+            co_sched_eventmanager(s, FALSE /* wait */);
         else
             /* already NEW or READY threads exists, so just poll for even more work */
-            co_sched_eventmanager(s, &snapshot, TRUE  /* poll */);
+            co_sched_eventmanager(s, TRUE  /* poll */);
     }
 
     /* NOTREACHED */
@@ -125,33 +93,19 @@ void *co_scheduler(sched_t s)
 
 /*
  * Look whether some events already occurred (or failed) and move
- * corresponding threads from waiting queue back to ready queue.
+ * corresponding coroutines to ready queue.
  */
-void co_sched_eventmanager(sched_t s, co_time_t *now, int dopoll)
+void co_sched_eventmanager(sched_t s, int dopoll)
 {
-    co_t nexttimer_thread;
-    co_event_t nexttimer_ev;
-    co_time_t nexttimer_value;
-    co_event_t evh;
-    co_event_t ev;
-    co_t t;
-    co_t tlast;
-    int this_occurred;
-    int any_occurred;
-    struct timeval delay;
-    struct timeval *pdelay;
-    char minibuf[128];
-    int rc;
-    int n;
-
     printf("co_sched_eventmanager: enter in %s mode",
                dopoll ? "polling" : "waiting");
 
     co_event_t ev_head = NULL;
+
     /* now decide how to poll for events and timers */
     if (dopoll) {
         /* do a polling with immediate timeout.
-         * already have event occured or new
+         * already have event occurred or new
          * coroutine waiting in the RQ 
          */
         pthread_mutex_lock(&s->ev_lock);
@@ -165,23 +119,39 @@ void co_sched_eventmanager(sched_t s, co_time_t *now, int dopoll)
         /* do a polling without a timeout,
            i.e. wait for the event only with blocking */
         pthread_mutex_lock(&s->ev_lock);
-        while(s->ev_occured_cnt <= 0)
-            pthread_cond_wait(&s->ev_occured_cond, &s->ev_lock);
+        while(s->ev_occurred_cnt <= 0)
+            pthread_cond_wait(&s->ev_occurred_cond, &s->ev_lock);
         ev_head = s->ev_queue_head;
         s->ev_queue_head = NULL;
         pthread_mutex_unlock(&s->ev_lock);
     }
 
-    /* loop all coroutines, put which has event occured into RQ */
+    /* loop all events, put corresponding coroutines into RQ */
     while(ev_head!=NULL) {
         co_event_t ev = ev_head;
         ev_head = ev_head->ev_next;
+        ev->ev_next = NULL;
         co_t t = ev->coroutine;
-        tlast = t;
+        /*goto end of coroutine's event queue, link event*/
         if (t->events == NULL) {
             t->events = ev;
         }else {
-            t->events->ev_next = ev;
+            co_event_t prev = t->events;
+            co_event_t cur = prev->ev_next;
+            while(cur != NULL) {
+                prev = cur;
+                cur = cur->ev_next;
+            }
+            prev->ev_next = ev;
+        }
+        /* before put coroutine into RQ, check if it already in RQ */
+        co_t t1 = co_pqueue_head(&s->RQ);
+        int already_in_rq = FALSE;
+        while(NULL != co_pqueue_walk(&s->RQ, t1, CO_WALK_NEXT)) {
+           if (t == t1) {
+               already_in_rq = TRUE;
+               break;
+           }
         }
         /*
          * move last coroutine to ready queue if any events occurred for it.
@@ -191,7 +161,9 @@ void co_sched_eventmanager(sched_t s, co_time_t *now, int dopoll)
          * what we want, because we oven use pth_yield() calls to give others
          * a chance.
          */
-         co_pqueue_insert(&s->RQ, t->prio+1, t);
+        if (!already_in_rq) {
+            co_pqueue_insert(&s->RQ, t->prio+1, t);
+        }
     }
     printf("co_sched_eventmanager: leaving");
     return;
