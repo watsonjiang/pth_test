@@ -2,16 +2,6 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-/* event structure destructor */
-static void co_event_destructor(void *vp)
-{
-    /* free this single(!) event. That it is just a single event is a
-       requirement for co_event(CO_MODE_STATIC, ...), or else we would
-       get into horrible trouble on asychronous cleanups */
-    co_event_free((co_event_t)vp, CO_FREE_THIS);
-    return;
-}
-
 /* event structure constructor */
 co_event_t co_event(unsigned long spec, ...)
 {
@@ -24,7 +14,7 @@ co_event_t co_event(unsigned long spec, ...)
     if (spec & CO_MODE_REUSE) {
         /* reuse supplied event structure */
         ev = va_arg(ap, co_event_t);
-    }
+    
     else {
         /* allocate new dynamic event structure */
         ev = (co_event_t)malloc(sizeof(struct co_event_st));

@@ -8,14 +8,12 @@ CFLAGS= -g -fpic
 
 LDFLAGS= -g -fPIC -lpthread  
 
-EX_OBJS=
+EX_OBJS=test.o
 
 SO_OBJS=co_pqueue.o \
-		co_time.o \
-		co_event.o \
 		co_sched.o
 
-BINS=libco.so
+BINS=libco.so test
 # project lifecycle target.
 all: release
 
@@ -24,8 +22,8 @@ release: $(BINS)
 libco.so: $(SO_OBJS)
 	$(CC) $(LDFLAGS) -shared -o $@ $(SO_OBJS) 
 
-#js: $(EX_OBJS)
-#	$(CXX) $(LDFLAGS) -L. -ljs -o $@ $(EX_OBJS)
+test: $(EX_OBJS) libco.so
+	$(CXX) $(LDFLAGS) -L. -lpthread -lco -o $@ $(EX_OBJS)
 
 # Other Targets
 clean:
