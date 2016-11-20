@@ -133,8 +133,10 @@ void co_sched_eventmanager(sched_t s, int dopoll)
         /* do a polling without a timeout,
            i.e. wait for the event only with blocking */
         pthread_mutex_lock(&s->ev_lock);
-        while(s->ev_occurred_cnt <= 0)
+        while(s->ev_occurred_cnt <= 0) {
             pthread_cond_wait(&s->ev_occurred_cond, &s->ev_lock);
+            printf("wakeup %d\n", s->ev_occurred_cnt);
+        }
         ev_head = s->ev_queue_head;
         s->ev_queue_head = NULL;
         pthread_mutex_unlock(&s->ev_lock);
@@ -171,7 +173,7 @@ void co_sched_eventmanager(sched_t s, int dopoll)
         /* before put coroutine into RQ, check if it already in RQ */
         co_t t1 = co_pqueue_head(&s->RQ);
         int already_in_rq = FALSE;
-        while(NULL != co_pqueue_walk(&s->RQ, t1, CO_WALK_NEXT)) {
+        for(; t1!=NULL; t1=co_pqueue_walk(&s->RQ, t1, CO_WALK_NEXT)) {
            if (t == t1) {
                already_in_rq = TRUE;
                break;
@@ -186,6 +188,7 @@ void co_sched_eventmanager(sched_t s, int dopoll)
          * a chance.
          */
         if (!already_in_rq) {
+            printf("insert coroutine  %p to RQ\n", t);
             co_pqueue_insert(&s->RQ, t->prio+1, t);
         }
         pthread_mutex_lock(&s->ev_lock);
@@ -274,6 +277,7 @@ co_t co_create_co(void* (*func)(void*), void *arg)
         c->ev_next = ev;
         ev->ev_next = NULL;
     }
+    printf("put event\n");
     s->ev_occurred_cnt += 1;
     pthread_cond_signal(&s->ev_occurred_cond);
     pthread_mutex_unlock(&s->ev_lock);
