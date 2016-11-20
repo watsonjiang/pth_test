@@ -199,7 +199,9 @@ void co_sched_eventmanager(sched_t s, int dopoll)
     return;
 }
 
-static sched_t g_co_sched_list[10];
+static int num_of_sched = 0;
+static sched_t * g_co_sched_list = NULL;
+static int next_sched_idx = 0;
 
 static void* _lunch_sched(void* arg)
 {
@@ -224,7 +226,8 @@ void co_lunch_scheduler(int num)
     pthread_t th;
     
     pthread_once(&co_sched_once, co_sched_init);
-
+    num_of_sched = num;
+    g_co_sched_list = (sched_t*)malloc(num * sizeof(sched_t));
     for(i=0;i<num;i++) {
         printf("create thread %d\n", i);
         int * id = (int*)malloc(sizeof(int));
@@ -264,7 +267,8 @@ co_t co_create_co(void* (*func)(void*), void *arg)
     co_event_t ev = (co_event_t) malloc(sizeof(struct co_event_st));
     ev->coroutine = t;
     ev->ev_type = CO_EVENT_NEW_CO;
-    sched_t s = g_co_sched_list[0];
+    sched_t s = g_co_sched_list[next_sched_idx];
+    next_sched_idx = (next_sched_idx + 1) % num_of_sched;
     pthread_mutex_lock(&s->ev_lock);
     if (s->ev_queue_head == NULL) {
         s->ev_queue_head = ev;

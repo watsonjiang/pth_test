@@ -17,11 +17,16 @@ void * test_co_func(void *args)
 {
     int * i = (int *)args;
     printf("test_co_func hello %d\n", *i);
+    int k = 0;
+    unsigned int s = 0;
+    for (k=0; k<1000;k++) {
+        s = s + k;
+    }
 }
 
 int main() {
   
-    co_lunch_scheduler(1);
+    co_lunch_scheduler(6);
     sleep(1);
     int id_list[1000];
     int i;

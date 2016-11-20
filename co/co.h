@@ -118,6 +118,5 @@ struct co_event_st {
 #define CO_EVENT_NEW_CO             _BIT(1)
 #define CO_EVENT_TIME               _BIT(2)
 
-
 extern void co_lunch_scheduler(int num);
 #endif
