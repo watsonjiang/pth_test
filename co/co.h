@@ -119,4 +119,7 @@ struct co_event_st {
 #define CO_EVENT_TIME               _BIT(2)
 
 extern void co_lunch_scheduler(int num);
+
+/* timer related */
+typedef struct co_timer_st * co_timer_t;
 #endif

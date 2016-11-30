@@ -33,6 +33,7 @@ void co_timer_init(co_timer_t *t)
     pthread_mutex_init(&tmp->new_timer_lock, NULL);
     pthread_cond_init(&tmp->new_timer_cond, NULL);
     tmp->new_timer_list == NULL;
+    tmp->timer_list = NULL;
     *t = tmp;
 }
 
@@ -83,11 +84,13 @@ static void handle_new_timer(co_timer_t t)
 {
     pthread_mutex_lock(&t->new_timer_lock);
     while(NULL != t->new_timer_list) {
+        co_timer_entry_t new_timer = t->new_timer_list;
+        t->new_timer_list = new_timer->next;
         if(NULL == t->timer_list) {
             t->timer_list = t->new_timer_list;
             t->new_timer_list = t->new_timer_list->next;
             t->timer_list->next = NULL;
-            break;
+            continue;
         }
         co_timer_entry_t e = NULL; 
         for(e=t->timer_list; e!=NULL; e=e->next) {
@@ -96,7 +99,7 @@ static void handle_new_timer(co_timer_t t)
                 t->new_timer_list = tmp->next;
                 tmp->next = e->next;
                 e->next = tmp;
-                break;
+                continue;
             }
         }
     }
