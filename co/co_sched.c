@@ -281,7 +281,6 @@ co_t co_create_co(void* (*func)(void*), void *arg)
         c->ev_next = ev;
         ev->ev_next = NULL;
     }
-    printf("put event\n");
     s->ev_occurred_cnt += 1;
     pthread_cond_signal(&s->ev_occurred_cond);
     pthread_mutex_unlock(&s->ev_lock);

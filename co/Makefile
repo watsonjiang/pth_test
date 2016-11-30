@@ -12,9 +12,9 @@ EX_OBJS=test.o
 
 SO_OBJS=co_pqueue.o \
 		co_sched.o \
-		co_time.o
+		co_timer.o
 
-BINS=libco.so test
+BINS=libco.so test co_timer_test
 # project lifecycle target.
 all: release
 
@@ -24,12 +24,15 @@ libco.so: $(SO_OBJS)
 	$(CC) $(LDFLAGS) -shared -o $@ $(SO_OBJS) 
 
 test: $(EX_OBJS) libco.so
-	$(CXX) $(LDFLAGS) -L. -lpthread -lco -o $@ $(EX_OBJS)
+	$(CC) $(LDFLAGS) -L. -lpthread -lco -o $@ $(EX_OBJS)
+
+co_timer_test: co_timer_test.o libco.so
+	$(CC) $(LDFLAGS) -L. -lpthread -lco -o $@ co_timer_test.o
 
 # Other Targets
 clean:
 	-$(RM) $(SO_OBJS) $(EX_OBJS) $(BINS)
 	-@echo ' '
 
-.PHONY: all clean test
+.PHONY: all clean
 .SECONDARY:
