@@ -122,4 +122,6 @@ extern void co_lunch_scheduler(int num);
 
 /* timer related */
 typedef struct co_timer_st * co_timer_t;
+typedef void (*timeout_callback_t)(void * arg); 
+extern void co_timer_schedule(co_timer_t t, struct timespec *abs_timeout, timeout_callback_t cb, void *cb_arg);
 #endif
