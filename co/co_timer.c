@@ -143,6 +143,7 @@ void co_timer_mainloop(co_timer_t t)
         pthread_mutex_lock(&t->new_timer_lock);
         while(NULL == t->new_timer_list) {
             if(NULL == t->timer_list) { //no timer, wait for new timer
+                printf("wait forever!!!\n");
                 pthread_cond_wait(&t->new_timer_cond, &t->new_timer_lock);
             }else{
                 struct timespec *next_timeout;
@@ -150,7 +151,7 @@ void co_timer_mainloop(co_timer_t t)
                 next_timeout = &t->timer_list->timeout;
                 printf("wait for timeout!!!\n");
                 ret = pthread_cond_timedwait(&t->new_timer_cond, &t->new_timer_lock, next_timeout);
-                printf("back from timedwait!\n");
+                printf("back from timedwait! %d %d\n", ETIMEDOUT, ret);
                 if(ETIMEDOUT == ret) {
                     break;
                 }
