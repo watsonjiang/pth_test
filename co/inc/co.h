@@ -57,11 +57,11 @@ struct co_st {
 };
 
 /* return current co */
-extern co_t co_get_current_co();
+co_t co_get_current_co();
 
 typedef struct sched_st * sched_t;
-extern sched_t co_scheduler_create();
-extern void* co_schedule_loop(sched_t s);
+sched_t co_scheduler_create();
+void* co_schedule_loop(sched_t s);
 
 /* pqueue related */
 /* coroutine priority queue */
@@ -77,11 +77,11 @@ typedef struct co_pqueue_st co_pqueue_t;
 #define co_pqueue_elements(q) \
     ((q) == NULL ? (-1) : (q)->q_num)
 
-extern co_t co_pqueue_tail(co_pqueue_t *q);
+co_t co_pqueue_tail(co_pqueue_t *q);
 
-extern co_t co_pqueue_delmax(co_pqueue_t *q);
+co_t co_pqueue_delmax(co_pqueue_t *q);
 
-extern co_t co_pqueue_walk(co_pqueue_t *q, co_t t, int direction);
+co_t co_pqueue_walk(co_pqueue_t *q, co_t t, int direction);
 
 /* walk to first thread in queue; O(1) */
 #define co_pqueue_head(q) \
@@ -118,10 +118,10 @@ struct co_event_st {
 #define CO_EVENT_NEW_CO             _BIT(1)
 #define CO_EVENT_TIME               _BIT(2)
 
-extern void co_lunch_scheduler(int num);
+void co_lunch_scheduler(int num);
 
 /* timer related */
 typedef struct co_timer_st * co_timer_t;
 typedef void (*timeout_callback_t)(void * arg); 
-extern void co_timer_schedule(co_timer_t t, struct timespec *abs_timeout, timeout_callback_t cb, void *cb_arg);
-#endif
+void co_timer_schedule(co_timer_t t, struct timespec *abs_timeout, timeout_callback_t cb, void *cb_arg);
+#endif /*CO_H*/

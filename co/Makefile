@@ -1,33 +1,25 @@
-# make file for wpr_tracing.
+# make file for co.
 # author: watson
-# Date: Nov 24, 2013
+# Date: Dec 8, 2016
 
 RM := rm -rf
 
-CFLAGS= -g -fpic
+CXXFLAGS= -g -fpic -I./inc
 
 LDFLAGS= -g -fPIC -lpthread  
 
-EX_OBJS=test.o
+SO_OBJS=./src/co_pqueue.o \
+		./src/co_sched.o \
+		./src/co_timer.o
 
-SO_OBJS=co_pqueue.o \
-		co_sched.o \
-		co_timer.o
-
-BINS=libco.so test co_timer_test
+BINS=libco.so 
 # project lifecycle target.
 all: release
 
 release: $(BINS) 
 
 libco.so: $(SO_OBJS)
-	$(CC) $(LDFLAGS) -shared -o $@ $(SO_OBJS) 
-
-test: $(EX_OBJS) libco.so
-	$(CC) $(LDFLAGS) -L. -lpthread -lco -o $@ $(EX_OBJS)
-
-co_timer_test: co_timer_test.o libco.so
-	$(CC) $(LDFLAGS) -L. -lpthread -lco -o $@ co_timer_test.o
+	$(CXX) $(LDFLAGS) -shared -o $@ $(SO_OBJS) 
 
 # Other Targets
 clean:

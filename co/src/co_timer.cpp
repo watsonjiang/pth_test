@@ -51,7 +51,7 @@ void co_timer_schedule(co_timer_t t, struct timespec *abs_timeout, timeout_callb
     pthread_mutex_unlock(&t->new_timer_lock);
 }
 
-static int co_time_cmp(struct timespec *t1, struct timespec *t2)
+int co_time_cmp(struct timespec *t1, struct timespec *t2)
 {
     if (t1->tv_sec < t2->tv_sec) {
         return -1;
@@ -66,7 +66,7 @@ static int co_time_cmp(struct timespec *t1, struct timespec *t2)
     return 0;
 }
 
-static void emit_timeout(co_timer_t t, struct timespec * now)
+void emit_timeout(co_timer_t t, struct timespec * now)
 {
     if (NULL==t->timer_list) {
        return;

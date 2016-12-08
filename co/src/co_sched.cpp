@@ -1,9 +1,11 @@
-#include "co.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <errno.h>
 #include <ucontext.h>
+#include "co.h"
+#include "co_pqueue.h"
+
 
 pthread_key_t co_sched_key = 0;
 pthread_once_t co_sched_once = PTHREAD_ONCE_INIT;

@@ -1,5 +1,7 @@
 #include "co.h"
+#include "co_pqueue.h"
 #include <pthread.h>
+
 
 /* initialize a priority queue; O(1) */
 void co_pqueue_init(co_pqueue_t *q)
@@ -129,10 +131,6 @@ void co_pqueue_delete(co_pqueue_t *q, co_t t)
     return;
 }
 
-/* determine priority required to favorite a thread; O(1) */
-#define co_pqueue_favorite_prio(q) \
-    ((q)->q_head != NULL ? (q)->q_head->q_prio + 1 : CO_PRIO_MAX)
-
 /* move a thread inside queue to the top; O(n) */
 int co_pqueue_favorite(co_pqueue_t *q, co_t t)
 {
@@ -166,14 +164,6 @@ void co_pqueue_increase(co_pqueue_t *q)
     q->q_head->q_prio += 1;
     return;
 }
-
-/* return number of elements in priority queue: O(1) */
-#define co_pqueue_elements(q) \
-    ((q) == NULL ? (-1) : (q)->q_num)
-
-/* walk to first thread in queue; O(1) */
-#define co_pqueue_head(q) \
-    ((q) == NULL ? NULL : (q)->q_head)
 
 /* walk to last thread in queue */
 co_t co_pqueue_tail(co_pqueue_t *q)

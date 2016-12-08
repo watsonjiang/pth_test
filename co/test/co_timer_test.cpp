@@ -1,7 +1,13 @@
-#include "co.h"
+#include <unittestdef.h>
 #include <stdio.h>
-#include <time.h>
+#include <unistd.h>
 #include <pthread.h>
+#include "co.h"
+#include "co_timer.h"
+
+using namespace uts;
+
+extern void co_timer_mainloop(co_timer_t t);
 
 co_timer_t timer;
 
@@ -24,7 +30,8 @@ void* foo(void * dummy)
    } 
 }
 
-int main()
+void
+testcase1(uts::TestContext& context)
 {
    co_timer_init(&timer);
    struct timespec now;
@@ -40,5 +47,7 @@ int main()
 
    co_timer_mainloop(timer);
    printf("done\n");
-   return 0;
 }
+
+DefineTestSuite(CoTimerTest, uts::root());
+DefineTestCase(testcase1, CoTimerTest);
