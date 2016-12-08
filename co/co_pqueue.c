@@ -7,11 +7,6 @@ void co_pqueue_init(co_pqueue_t *q)
     if (q != NULL) {
         q->q_head = NULL;
         q->q_num  = 0;
-       
-        pthread_mutexattr_init(&q->lock_attr);
-        pthread_mutexattr_settype(&q->lock_attr, PTHREAD_MUTEX_RECURSIVE);
-        pthread_mutex_init(&q->lock, &q->lock_attr);
-        pthread_cond_init(&q->not_empty_cond, NULL);
     }
     return;
 }
@@ -21,7 +16,6 @@ void co_pqueue_insert(co_pqueue_t *q, int prio, co_t t)
 {
     co_t c;
     int p;
-    pthread_mutex_lock(&q->lock);
     if (q == NULL)
         return;
     if (q->q_head == NULL || q->q_num == 0) {
@@ -58,8 +52,6 @@ void co_pqueue_insert(co_pqueue_t *q, int prio, co_t t)
             t->q_next->q_prio -= t->q_prio;
     }
     q->q_num++;
-    pthread_cond_signal(&q->not_empty_cond);
-    pthread_mutex_unlock(&q->lock);
     return;
 }
 
