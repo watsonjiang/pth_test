@@ -10,7 +10,6 @@
 #include "tracemsg.h"
 #include <time.h>
 #include <sys/time.h>
-#include <pth.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>

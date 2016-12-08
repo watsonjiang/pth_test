@@ -1,5 +1,4 @@
 #include <tracing.h>
-#include <pth.h>
 #include <stdio.h>
 #include <unittestdef.h>
 using namespace wpr_tracing;

@@ -20,7 +20,7 @@ test: $(BINS)
 tracing_test: $(OBJS) 
 	@echo 'Building target: $@'
 	@echo 'Invoking:  C++ Linker'
-	$(CXX) -L../ -L../../pth-2.0.7 -L../../uts -lpth -ltracing -luts -o "$@" $^ 
+	$(CXX) -L../ -L../../pth-2.0.7 -L../../uts -ltracing -luts -o "$@" $^ 
 	@echo 'Finished building target: $@'
 	@echo ' '
 

@@ -4,9 +4,9 @@
 
 RM := rm -rf
 
-CXXFLAGS= -I./inc -I../pth -fpic
+CXXFLAGS= -I./inc -fpic
 
-LDFLAGS= -fPIC -shared -L ../pth/.libs -lpth
+LDFLAGS= -fPIC -shared 
 
 OBJS=./src/main.o \
      ./src/testqualifier.o \

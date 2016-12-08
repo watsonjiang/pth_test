@@ -4,9 +4,9 @@
 
 RM := rm -rf
 
-CXXFLAGS= -I../inc -I../src -I../../pth-2.0.7 -fpic
+CXXFLAGS= -I../inc -I../src -fpic
 
-LDFLAGS= -L../ -L../../pth-2.0.7 -lpth -luts
+LDFLAGS= -L../ -luts
 
 OBJS=./uts_test.o 
 

@@ -4,7 +4,7 @@
 
 RM := rm -rf
 
-CXXFLAGS= -I./inc -I../pth -fpic
+CXXFLAGS= -I./inc -fpic
 
 OBJS=./src/functiontracer.o \
      ./src/tracemanager.o \
@@ -22,7 +22,7 @@ release: $(BINS)
 libtracing.so: $(OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC linker'
-	$(CXX) -fPIC -shared -L ../pth/.libs -lpth -o $@ $(OBJS) 
+	$(CXX) -fPIC -shared -o $@ $(OBJS) 
 	@echo 'Finished building target: $@'
 	@echo ' '
 
