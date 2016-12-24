@@ -4,23 +4,22 @@
 
 RM := rm -rf
 
-CXXFLAGS= -I../inc -I../src -I../../pth-2.0.7 -I ../../uts/inc -fpic
+CXXFLAGS= -I../inc -I../src -fpic
 
-OBJS= ./common_test.o \
-      ./traceappender_test.o
+OBJS= tracing_test.o 
 
-BINS=./tracing_test 
+BINS=tracing_test 
 
 all:test 
 
 test: $(BINS)
-	@export LD_LIBRARY_PATH=../../pth-2.0.7/.libs:../:../../uts:$$LD_LIBRARY_PATH;\
-        for f in $(BINS); do echo "Invoking: $$f"; $$f; done
+	@export LD_LIBRARY_PATH=../;$$LD_LIBRARY_PATH;\
+        for f in $(BINS); do echo "Invoking: $$f"; ./$$f; done
 
 tracing_test: $(OBJS) 
 	@echo 'Building target: $@'
 	@echo 'Invoking:  C++ Linker'
-	$(CXX) -L../ -L../../pth-2.0.7 -L../../uts -ltracing -luts -o "$@" $^ 
+	$(CXX) -L../ -ltracing -o "$@" $^ 
 	@echo 'Finished building target: $@'
 	@echo ' '
 
